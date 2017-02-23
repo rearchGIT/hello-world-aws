@@ -1,0 +1,61 @@
+_template() {
+  local tmpfile=$(mktemp -t "$1")
+  # get directory in which script is running
+  local dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  # convert .rkt DSL file into cloudformation json template
+  eval docker run -v $dir:/templates docmoxie/cloudformation-rkt-to-json > $tmpfile
+  echo "file://$tmpfile"
+}
+
+_update-or-create-stack() {
+  local cmd=$1
+  local tpl=$2
+  local name=$3
+  shift
+  shift
+  shift
+  local params=()
+  if [ -n "$1" ]; then
+    local params=(--parameters $($*))
+  fi
+
+  aws cloudformation $cmd-stack \
+    --stack-name $name \
+    --capabilities CAPABILITY_IAM \
+    --template-body "$(_template $tpl)" \
+    ${params[@]}
+}
+
+create-stack() {
+  _update-or-create-stack create $*
+}
+
+update-stack() {
+  _update-or-create-stack update $*
+}
+
+delete-stack() {
+  aws cloudformation delete-stack \
+    --stack-name $1
+}
+
+describe-stack() {
+  aws cloudformation describe-stacks \
+    --stack-name $1 \
+    --query 'Stacks[0]'
+}
+
+stack-outputs() {
+  aws cloudformation describe-stacks \
+    --stack-name $1 \
+    --output text \
+    --query 'Stacks[0].Outputs | join(`"\n"`,[].join(`""`,[OutputKey,`"="`,OutputValue]))'
+}
+
+stack-param() {
+  echo "ParameterKey=$1,ParameterValue=$2"
+}
+
+_security-name() {
+  echo $1-security
+}

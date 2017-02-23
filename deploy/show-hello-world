@@ -1,0 +1,6 @@
+#!/bin/bash
+
+source $(dirname $0)/functions.shinc
+source $(dirname $0)/functions-hello-world.shinc
+
+describe-stack $(hello-world-stack-name $*)

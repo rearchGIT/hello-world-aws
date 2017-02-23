@@ -1,0 +1,40 @@
+hello-world-stack-name() {
+  echo $1-hello-world
+}
+
+_hello-world-net-name() {
+  echo $1-network
+}
+
+_hello-world-cluster-name() {
+  echo $1-deployment-cluster
+}
+
+_hello-world-security-name() {
+  echo $1-security
+}
+
+hello-world-params() {
+  eval $(stack-outputs $(_hello-world-net-name $*) | sed 's/^/local /')
+  eval $(stack-outputs $(_hello-world-cluster-name $*) | sed 's/^/local /')
+  eval $(stack-outputs $(_hello-world-security-name $*) | sed 's/^/local /')
+
+  local env="$1"
+
+  echo $(stack-param Env "$env")
+  echo $(stack-param NetworkServiceSubnets "\"$NetworkServiceSubnets\"")
+  echo $(stack-param LoadBalancerSecurityGroup "$LoadBalancerSecurityGroup")
+  echo $(stack-param Cluster "$Cluster")
+
+  local tag="$2"
+  if [ "$tag" = "" ]; then
+    echo $(stack-param ApplicationImageTag latest)
+  else
+    echo $(stack-param ApplicationImageTag "$tag")
+  fi
+
+}
+
+hello-world-template-name() {
+  echo cf-hello-world
+}
