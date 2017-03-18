@@ -1,10 +1,6 @@
 _template() {
-  local tmpfile=$(mktemp -t "$1")
-  # get directory in which script is running
   local dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  # convert .rkt DSL file into cloudformation json template
-  eval docker run -v $dir:/templates docmoxie/cloudformation-rkt-to-json > $tmpfile
-  echo "file://$tmpfile"
+  echo "file://$dir/cf-hello-world.yaml"
 }
 
 _update-or-create-stack() {

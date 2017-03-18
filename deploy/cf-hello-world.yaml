@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy identity provider
+
+Parameters:
+  LoadBalancerSecurityGroup:
+    MinLength: 1
+    Description: The security group for the load balancer.
+    Type: String
+  ApplicationImageTag:
+    MinLength: 1
+    Description: The tag from which to pull the app image
+    Type: String
+  NetworkServiceSubnets:
+    Description: The subnets to which the load balancer attaches.
+    Type: List<String>
+  Cluster:
+    MinLength: 1
+    Description: The ECS cluster for container deployment
+    Type: String
+  Env:
+    MinLength: 1
+    Description: The name of environment
+    Type: String
+  HelloWorldHostPort:
+    Description: The host port on which to reach identity provider
+    Default: 9876
+    Type: Number
+  NumberOfTasks:
+    Description: The desired number of running tasks
+    Default: 1
+    Type: Number
+
+Resources:
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      LoadBalancers:
+      - ContainerPort: 8000
+        LoadBalancerName: !Ref LoadBalancer
+        ContainerName: hello-world
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref ServerTask
+      DesiredCount: !Ref NumberOfTasks
+      Role: ecsServiceRole
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      CrossZone: true
+      Subnets: !Ref NetworkServiceSubnets
+      Scheme: internet-facing
+      Listeners:
+      - InstanceProtocol: HTTP
+        Protocol: HTTP
+        InstancePort: !Ref HelloWorldHostPort
+        LoadBalancerPort: 80
+      SecurityGroups: [!Ref LoadBalancerSecurityGroup]
+
+  Domain:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: Z3W22M45YLHUGH
+      AliasTarget:
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneNameID
+        DNSName: !GetAtt LoadBalancer.DNSName
+      Name: !Sub ${Env}-hello-world.cjpowered.com
+      Type: A
+
+  ServerTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Image: !Sub 114272735376.dkr.ecr.us-east-1.amazonaws.com/hello-world:${ApplicationImageTag}
+        PortMappings:
+        - ContainerPort: 8000
+          HostPort: !Ref HelloWorldHostPort
+        Name: hello-world
+        Memory: 128
+      Family: !Sub ${Env}-hello-world
+
+Outputs:
+  Service:
+    Value: !Ref Service
+
+  HelloWorldUrl:
+    Value: !Ref Domain
