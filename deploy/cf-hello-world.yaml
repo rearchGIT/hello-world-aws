@@ -12,7 +12,7 @@ Parameters:
     Type: String
   NetworkServiceSubnets:
     Description: The subnets to which the load balancer attaches.
-    Type: List<String>
+    Type: String
   Cluster:
     MinLength: 1
     Description: The ECS cluster for container deployment
@@ -21,61 +21,58 @@ Parameters:
     MinLength: 1
     Description: The name of environment
     Type: String
-  HelloWorldHostPort:
-    Description: The host port on which to reach identity provider
-    Default: 9876
-    Type: Number
-  NumberOfTasks:
-    Description: The desired number of running tasks
-    Default: 1
-    Type: Number
+  Vpc:
+    Description: The application's VPC
+    Type: String
+    MinLength: 1
+  HostSecurityGroup:
+    Description: The container hosts' security group
+    Type: String
+    MinLength: 1
 
 Resources:
-  Service:
-    Type: AWS::ECS::Service
-    Properties:
-      LoadBalancers:
-      - ContainerPort: 8000
-        LoadBalancerName: !Ref LoadBalancer
-        ContainerName: hello-world
-      DeploymentConfiguration:
-        MinimumHealthyPercent: 0
-      Cluster: !Ref Cluster
-      TaskDefinition: !Ref ServerTask
-      DesiredCount: !Ref NumberOfTasks
-      Role: ecsServiceRole
-
   LoadBalancer:
-    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Type: AWS::CloudFormation::Stack
     Properties:
-      CrossZone: true
-      Subnets: !Ref NetworkServiceSubnets
-      Scheme: internet-facing
-      Listeners:
-      - InstanceProtocol: HTTP
+      TemplateURL: https://s3.amazonaws.com/matryoshka-template-store/application-load-balancer-for-containers_v1.yaml
+      Parameters:
+        Vpc: !Ref Vpc
+        LoadBalancerSecurityGroup: !Ref LoadBalancerSecurityGroup
+        NetworkServiceSubnets: !Ref NetworkServiceSubnets
+        LoadBalancerName: hello-world
+        HostSecurityGroup: !Ref HostSecurityGroup
         Protocol: HTTP
-        InstancePort: !Ref HelloWorldHostPort
-        LoadBalancerPort: 80
-      SecurityGroups: [!Ref LoadBalancerSecurityGroup]
+
+  Service:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/matryoshka-template-store/container-service_v1.yaml
+      Parameters:
+        ContainerName: hello-world
+        ContainerPort: 8000
+        TaskDefinition: !Ref Task
+        LoadBalancer: !Ref LoadBalancer
+        Cluster: !Ref Cluster
+        TargetGroup: !GetAtt LoadBalancer.Outputs.TargetGroup
 
   Domain:
     Type: AWS::Route53::RecordSet
     Properties:
-      HostedZoneId: Z3W22M45YLHUGH
+      HostedZoneId: ZZCW5RQ81QPV3
       AliasTarget:
-        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneNameID
-        DNSName: !GetAtt LoadBalancer.DNSName
-      Name: !Sub ${Env}-hello-world.cjpowered.com
+        HostedZoneId: !GetAtt LoadBalancer.Outputs.CanonicalHostedZoneID
+        DNSName: !GetAtt LoadBalancer.Outputs.DNSName
+      Name: !Sub ${Env}-hello-world.d.cjpowered.com
       Type: A
 
-  ServerTask:
+  Task:
     Type: AWS::ECS::TaskDefinition
     Properties:
       ContainerDefinitions:
       - Image: !Sub 114272735376.dkr.ecr.us-east-1.amazonaws.com/hello-world:${ApplicationImageTag}
         PortMappings:
         - ContainerPort: 8000
-          HostPort: !Ref HelloWorldHostPort
+          HostPort: 0
         Name: hello-world
         Memory: 128
       Family: !Sub ${Env}-hello-world
@@ -83,6 +80,7 @@ Resources:
 Outputs:
   Service:
     Value: !Ref Service
-
-  HelloWorldUrl:
+  LoadBalancer:
+    Value: !Ref LoadBalancer
+  Domain:
     Value: !Ref Domain

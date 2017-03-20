@@ -22,9 +22,11 @@ hello-world-params() {
   local env="$1"
 
   echo $(stack-param Env "$env")
+  echo $(stack-param Vpc "$VPC")
   echo $(stack-param NetworkServiceSubnets "\"$NetworkServiceSubnets\"")
   echo $(stack-param LoadBalancerSecurityGroup "$LoadBalancerSecurityGroup")
   echo $(stack-param Cluster "$Cluster")
+  echo $(stack-param HostSecurityGroup "$HostSecurityGroup")
 
   local tag="$2"
   if [ "$tag" = "" ]; then
