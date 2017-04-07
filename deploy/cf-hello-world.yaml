@@ -75,6 +75,7 @@ Resources:
           HostPort: 0
         Name: hello-world
         Memory: 128
+        Cpu: 200
       Family: !Sub ${Env}-hello-world
 
 Outputs:
